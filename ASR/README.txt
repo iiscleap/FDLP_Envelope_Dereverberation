@@ -1,0 +1,9 @@
+
+
+This folder contains two sub-folders
+
+1) FBANK_ASR - This folder contains codes to run the log-mel filterbank fetures based hybrid ASR...
+
+2) FDLP_ASR - This folder contains codes to run the FDLP feature based hybrid ASR...
+
+Pls use FDLP_ASR codes to do the ASR with FDLP features after dereverberation as well... 

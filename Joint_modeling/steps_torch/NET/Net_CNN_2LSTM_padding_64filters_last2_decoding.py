@@ -1,0 +1,83 @@
+from fdlp_env_comp_100hz_factor_40 import fdlp_env_comp_100hz_factor_40
+import torch
+import torch.nn as nn
+import numpy
+from pdb import set_trace as bp  #################added break point accessor####################
+from Net_FDLP_LSTM_BatchNorm import Net2
+################### ''' large kernel = (10,3) with 32 filters with LSTM''' ######################
+class Net1 (nn.Module):
+    def __init__(self):
+        super(Net1,self).__init__()
+        self.conv1 = nn.Conv2d(1,32,kernel_size=(41,3),padding=(20,1))
+        #self.drop1 = nn.Dropout(0.2)
+        self.conv2 = nn.Conv2d(32,32,kernel_size=(41,3),padding=(20,1))
+        #self.drop2 = nn.Dropout(0.2)
+        self.conv3 = nn.Conv2d(32,64,kernel_size=(21,5),padding=(10,2))
+        #self.drop3 = nn.Dropout(0.2)
+        self.conv4 = nn.Conv2d(64,64,kernel_size=(21,5),padding=(10,2))
+        #self.drop4 = nn.Dropout(0.2)
+        self.lstm1 = nn.LSTM(36*64, 1024 , batch_first=True) 
+        self.lstm2 = nn.LSTM(1024, 36 , batch_first=True)
+        self.relu  = nn.ReLU()
+#        self.net2 = Net2()
+#        self.net2 = self.net2.cuda()
+#        print (self.net2)
+
+    def forward(self, x, net2):
+        ip = x 
+        x = (self.relu(self.conv1(x)))
+        x = (self.relu(self.conv2(x)))
+        x = (self.relu(self.conv3(x)))
+        x = (self.relu(self.conv4(x)))
+        x = x.transpose(1,2)        
+        x = torch.reshape(x,(-1,800,36*64))
+        x,_ = self.lstm1(x)
+        x,_ = self.lstm2(x)  
+        x = self.new_forward_prop(ip,x.detach().cpu().numpy())
+        x = torch.from_numpy(x).float().cuda()
+        bp()
+        x = net2(x)        
+        return x
+
+ 
+    def new_forward_prop(self,cepstra_in,outputs):
+          outputs = outputs.reshape(-1,1,800,36)
+          outputs = outputs + cepstra_in
+          # print("########### adding exponential ###########")
+          outExp = numpy.exp(outputs)
+          for i in range(outputs.shape[0]):
+            data = numpy.transpose(outExp[i,0,:,:])
+            if i == outputs.shape[0]-1:
+               data = numpy.transpose(outExp[i,0,:,:])
+               Intout = fdlp_env_comp_100hz_factor_40(data,400, 36)
+            else :
+               data = numpy.transpose(outExp[i,0,:,:])
+               Intout = fdlp_env_comp_100hz_factor_40(data,400, 36)
+            if i == 0:
+               cepstra = Intout
+            else :
+               cepstra = numpy.concatenate((cepstra,Intout),axis=1)  
+	  
+          ###### output of net1 is integrated and combined to get example 814 batches #####
+          cepstra = numpy.expand_dims(cepstra,axis=0)
+          for j in range(cepstra.shape[2]):
+              if j <= 10:                            ##### for first ten frames append the repeating frames from the lest ######                 
+                 cepstra_net2 = cepstra[:,:,0:j+11]
+                 cepstra_net2_left = numpy.repeat(numpy.expand_dims(cepstra[:,:,0],axis=2),10-j,axis=2)
+                 cepstra_net2 = numpy.concatenate((cepstra_net2_left, cepstra_net2), axis=2)
+              elif j >= cepstra.shape[2]-10:        ##### for last ten frames append the repeating fromaes from the right #####                
+                 cepstra_net2 = cepstra[:,:,j-10:cepstra.shape[2]]
+                 cepstra_net2_right = numpy.repeat(numpy.expand_dims(cepstra[:,:,cepstra.shape[2]-1],axis=2),(11-(cepstra.shape[2]-j)),axis=2)
+                 cepstra_net2 = numpy.concatenate((cepstra_net2,cepstra_net2_right), axis=2)
+              else :                            ##### else choose the middel 21 frames ###########
+                 cepstra_net2 = cepstra[:,:,j-10:j+11]
+              
+              if j == 0:
+               cepstra_in_net2 = cepstra_net2   ##### j=0 initialize the cepstra_in_net2
+              else :
+               cepstra_in_net2 = numpy.concatenate((cepstra_in_net2,cepstra_net2),axis=0)   ##### for subsiquent frames just concat in dim zero to get 'x' batches of (x,1,21,36)
+
+          
+          cepstra = numpy.transpose(cepstra_in_net2,(0,2,1))
+          cepstra = numpy.expand_dims(cepstra,axis=1)
+          return cepstra     

@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+from pdb import set_trace as bp  # added break point accessor####################
+
+'''
+This code does buffering of 2D matrices using lists, for optimal performance
+'''
+
+
+def buffer_2d(X, n, p=0, opt=None):
+    '''Mimic MATLAB routine to generate buffer array
+
+    MATLAB docs here: https://se.mathworks.com/help/signal/ref/buffer.html
+
+    Parameters
+    ----------
+    x: ndarray
+        Signal array
+    n: int
+        Number of data segments
+    p: int
+        Number of values to overlap
+    opt: str
+        Initial condition options. default sets the first `p` values to zero,
+        while 'nodelay' begins filling the buffer immediately.
+
+    Returns
+    -------
+    result : (n,n) ndarray
+        Buffer array created from X
+    '''
+    import numpy as np
+    # bp()
+    if opt not in [None, 'nodelay']:
+        raise ValueError('{} not implemented'.format(opt))
+    # bp()
+    add_sample = 0
+    result_append = []
+    i = 0
+    first_iter = True
+    while i < len(X):
+        if first_iter:
+            if opt == 'nodelay':
+                # No zeros at array start
+                result = X[:n]
+                # bp()
+                result_append.append(np.expand_dims(result, axis=2))
+                i = n
+            else:
+                # Start with `p` zeros
+                # bp()
+                result = np.vstack([np.zeros((p, 36)), X[:n-p]])
+                result_append.append(np.expand_dims(result.T, axis=2))
+                i = n-p
+            # Make 2D array and pivot
+            result = np.expand_dims(result, axis=0).T
+            # result=result.T
+            first_iter = False
+            continue
+        # bp()
+        # Create next column, add `p` results from last col if given
+        col = X[i:i+(n-p)]
+        if p != 0:
+            col = np.hstack([result[:, :, -1][:, -p:], col.T])
+        i += n-p
+
+        # Append zeros if last row and not length `n`
+        if col.shape[0] < n:
+            # bp()
+            add_sample = n-col.shape[0]
+            col = np.vstack([col, np.zeros((n-col.shape[0], col.shape[1]))])
+
+        # Combine result with next row
+        result = np.expand_dims(col, axis=2)
+        result_append.append(result)
+
+    return np.squeeze(np.stack(result_append, axis=2), axis=3), add_sample

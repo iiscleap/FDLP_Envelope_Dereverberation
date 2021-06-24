@@ -1,0 +1,1 @@
+/home/data/CHiME3/data/audio/16kHz/isolated/tr05_ped_simu/026_026C0201_PED.CH1.wav /home/anirudhs/tmp/anu/Chime3_beamformed_SCMB3_without_gainnorm/Audio/tr05_ped_simu/026_026C0201_PED.wav 16000
